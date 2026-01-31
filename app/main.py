@@ -13,7 +13,7 @@ import streamlit as st
 
 
 # -----------------------------
-# Config y utilidades
+# Rutas y carga
 # -----------------------------
 @dataclass(frozen=True)
 class Artifacts:
@@ -52,7 +52,7 @@ def safe_path(path: Path) -> Optional[Path]:
 
 
 def normalize_sede_id(series: pd.Series) -> pd.Series:
-    # Unifica UPTC-CHI y UPTC_CHI y variantes de casing/espacios
+    # Unifica UPTC-CHI y UPTC_CHI, además de casing/espacios
     s = series.astype(str).str.strip().str.upper()
     s = s.str.replace("-", "_", regex=False)
     return s
@@ -68,61 +68,103 @@ def format_float(x: Any, ndigits: int = 4) -> str:
     return str(x)
 
 
+# -----------------------------
+# Estilo (vertical + cards)
+# -----------------------------
 def inject_css() -> None:
     st.markdown(
         """
 <style>
-/* Layout general */
-.block-container { padding-top: 1.2rem; padding-bottom: 2rem; }
-h1, h2, h3 { letter-spacing: -0.02em; }
+/* Contenedor más vertical (evita "pantalla enorme" y reduce scroll horizontal) */
+.block-container {
+  max-width: 1100px;
+  padding-top: 1.0rem;
+  padding-bottom: 2.0rem;
+}
 
-/* Sidebar */
+/* Sidebar suave */
 section[data-testid="stSidebar"] {
-  background: linear-gradient(180deg, rgba(14,62,120,0.06) 0%, rgba(14,62,120,0.02) 55%, rgba(0,0,0,0) 100%);
-  border-right: 1px solid rgba(0,0,0,0.06);
-}
-section[data-testid="stSidebar"] .stSelectbox, 
-section[data-testid="stSidebar"] .stCheckbox {
-  padding: 0.2rem 0.2rem 0.4rem 0.2rem;
+  background: linear-gradient(180deg, rgba(10,70,150,0.10) 0%, rgba(10,70,150,0.03) 60%, rgba(255,255,255,0) 100%);
+  border-right: 1px solid rgba(0,0,0,0.08);
 }
 
-/* Tarjetas */
-.card {
-  border: 1px solid rgba(0,0,0,0.08);
-  border-radius: 14px;
-  padding: 0.9rem 1rem;
-  background: rgba(255,255,255,0.65);
-  box-shadow: 0 6px 22px rgba(0,0,0,0.04);
+/* Header */
+.header {
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  background: linear-gradient(90deg, rgba(10,70,150,0.95) 0%, rgba(0,160,190,0.85) 100%);
+  color: white;
+  margin-bottom: 0.8rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.10);
 }
-.card-title { font-size: 0.85rem; opacity: 0.75; margin-bottom: 0.2rem; }
-.card-value { font-size: 1.45rem; font-weight: 700; margin: 0; }
+.header h1 { font-size: 1.6rem; margin: 0; letter-spacing: -0.02em; }
+.header p { margin: 0.35rem 0 0 0; opacity: 0.95; }
+
+/* Cards base */
+.card {
+  border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 14px;
+  padding: 0.85rem 0.95rem;
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+}
+
+/* KPI */
+.kpi-title { font-size: 0.82rem; opacity: 0.70; margin-bottom: 0.15rem; }
+.kpi-value { font-size: 1.35rem; font-weight: 800; margin: 0; }
+
+/* Badges severidad */
 .badge {
   display: inline-block;
-  padding: 0.12rem 0.55rem;
+  padding: 0.18rem 0.55rem;
   border-radius: 999px;
   font-size: 0.75rem;
+  font-weight: 700;
+  margin-left: 0.35rem;
   border: 1px solid rgba(0,0,0,0.10);
-  background: rgba(14,62,120,0.06);
+}
+.badge-alta { background: rgba(255, 59, 48, 0.12); color: rgba(150, 0, 0, 0.95); }
+.badge-media { background: rgba(255, 149, 0, 0.14); color: rgba(140, 70, 0, 0.95); }
+.badge-baja { background: rgba(52, 199, 89, 0.14); color: rgba(0, 100, 35, 0.95); }
+
+/* Reco card */
+.reco-title { font-weight: 800; margin: 0 0 0.35rem 0; }
+.reco-text { margin: 0.15rem 0 0 0; line-height: 1.35; word-wrap: break-word; white-space: normal; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+/* Dataframes: borde y radio */
+div[data-testid="stDataFrame"] {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.10);
 }
 
-/* Separadores suaves */
-hr { border: none; border-top: 1px solid rgba(0,0,0,0.07); margin: 1.3rem 0; }
+/* Separador suave */
+hr { border: none; border-top: 1px solid rgba(0,0,0,0.10); margin: 1.2rem 0; }
 
-/* Dataframes */
-div[data-testid="stDataFrame"] { border-radius: 14px; overflow: hidden; border: 1px solid rgba(0,0,0,0.07); }
 </style>
         """.strip(),
         unsafe_allow_html=True,
     )
 
 
-def card(col, title: str, value: str, badge: Optional[str] = None) -> None:
-    badge_html = f'<span class="badge">{badge}</span>' if badge else ""
-    col.markdown(
+def badge_html(severity: str) -> str:
+    sev = str(severity).strip().lower()
+    if sev == "alta":
+        return '<span class="badge badge-alta">ALTA</span>'
+    if sev == "media":
+        return '<span class="badge badge-media">MEDIA</span>'
+    if sev == "baja":
+        return '<span class="badge badge-baja">BAJA</span>'
+    return '<span class="badge">N/A</span>'
+
+
+def kpi_card(title: str, value: str) -> None:
+    st.markdown(
         f"""
 <div class="card">
-  <div class="card-title">{title} {badge_html}</div>
-  <p class="card-value">{value}</p>
+  <div class="kpi-title">{title}</div>
+  <p class="kpi-value">{value}</p>
 </div>
         """.strip(),
         unsafe_allow_html=True,
@@ -130,13 +172,98 @@ def card(col, title: str, value: str, badge: Optional[str] = None) -> None:
 
 
 # -----------------------------
+# Recomendaciones en lenguaje natural (cards)
+# -----------------------------
+def build_reco_message(row: pd.Series) -> tuple[str, str]:
+    """
+    Devuelve (titulo, mensaje) en lenguaje natural, usando campos del CSV:
+    timestamp, sede, y, yhat, abs_residual, severity, es_fin_semana, fuera_horario, action
+    """
+    sede = str(row.get("sede", "")).strip() or str(row.get("sede_id", "")).strip()
+    ts_raw = row.get("timestamp")
+    ts = pd.to_datetime(ts_raw, errors="coerce")
+
+    y = row.get("y")
+    yhat = row.get("yhat")
+    abs_res = row.get("abs_residual")
+    sev = str(row.get("severity", "")).strip().lower()
+
+    es_fin = row.get("es_fin_semana", None)
+    fuera_h = row.get("fuera_horario", None)
+
+    # Contexto horario
+    ctx = []
+    if pd.notna(ts):
+        hour = int(ts.hour)
+        if 0 <= hour <= 5:
+            ctx.append("madrugada")
+        elif 6 <= hour <= 11:
+            ctx.append("mañana")
+        elif 12 <= hour <= 17:
+            ctx.append("tarde")
+        else:
+            ctx.append("noche")
+
+    if isinstance(fuera_h, (bool, int)) and bool(fuera_h):
+        ctx.append("fuera de horario")
+    if isinstance(es_fin, (bool, int)) and bool(es_fin):
+        ctx.append("fin de semana")
+
+    ctx_txt = ", ".join(ctx) if ctx else "evento"
+
+    # Título corto
+    ts_title = ts.strftime("%Y-%m-%d %H:%M") if pd.notna(ts) else str(ts_raw)
+    title = f"{sede} · {ts_title} {badge_html(sev)}"
+
+    # Mensaje natural
+    parts = []
+    parts.append(f"Se detectó un consumo anómalo en {sede} ({ctx_txt}).")
+
+    if isinstance(y, (int, float)) and isinstance(yhat, (int, float)) and isinstance(abs_res, (int, float)):
+        parts.append(
+            f"Consumo real: {y:.2f} kWh; esperado: {yhat:.2f} kWh; diferencia: {abs_res:.2f} kWh."
+        )
+    elif isinstance(abs_res, (int, float)):
+        parts.append(f"Diferencia estimada: {abs_res:.2f} kWh.")
+
+    action = str(row.get("action", "")).strip()
+    if action:
+        parts.append(f"Acción sugerida: {action}")
+
+    msg = " ".join(parts)
+    return title, msg
+
+
+def render_recommendations_cards(df: pd.DataFrame, limit: int = 12) -> None:
+    show = df.head(limit).copy()
+    for _, r in show.iterrows():
+        title, msg = build_reco_message(r)
+        st.markdown(
+            f"""
+<div class="card" style="margin-bottom: 0.65rem;">
+  <p class="reco-title">{title}</p>
+  <p class="reco-text">{msg}</p>
+</div>
+            """.strip(),
+            unsafe_allow_html=True,
+        )
+
+
+# -----------------------------
 # App
 # -----------------------------
-st.set_page_config(page_title="IAMinds UPTC - Energía", layout="wide")
+st.set_page_config(page_title="IAMinds UPTC - Energía", layout="centered")
 inject_css()
 
-st.title("IAMinds UPTC – Energía")
-st.caption("Dashboard de lectura de reportes en /reports (sin reentrenar).")
+st.markdown(
+    """
+<div class="header">
+  <h1>IAMinds UPTC · Energía</h1>
+  <p>Pronóstico por sede · Anomalías (p99) · Recomendaciones</p>
+</div>
+    """.strip(),
+    unsafe_allow_html=True,
+)
 
 paths = Artifacts(
     metrics=REPORTS_DIR / "metrics_energy.json",
@@ -162,19 +289,19 @@ pv = load_csv(p_pred) if p_pred else None
 anom = load_csv(p_anom) if p_anom else None
 reco = load_csv(p_reco) if p_reco else None
 
-# Normalizar sede_id en todos los DF que lo tengan (evita el problema "-" vs "_")
+# Normalizar sede_id en todos los DF
 for df in [f24, f7d, pv, anom, reco]:
     if isinstance(df, pd.DataFrame) and "sede_id" in df.columns:
         df["sede_id"] = normalize_sede_id(df["sede_id"])
 
-# KPIs arriba
+# KPIs (vertical)
 target = metrics.get("target", "energia_total_kwh")
 mae = metrics.get("mae")
 rmse = metrics.get("rmse")
 cutoff = metrics.get("cutoff_timestamp")
 
 split_method = metrics.get("split_method", "")
-split_q = None
+split_q: Optional[float] = None
 if isinstance(split_method, str) and "quantile_" in split_method:
     try:
         split_q = float(split_method.split("quantile_")[-1])
@@ -185,42 +312,31 @@ last_updated = metrics.get("generated_at")
 if not last_updated and p_metrics:
     last_updated = pd.to_datetime(p_metrics.stat().st_mtime, unit="s").isoformat()
 
-k1, k2, k3, k4, k5 = st.columns(5)
-card(k1, "Target", str(target))
-card(k2, "MAE", format_float(mae))
-card(k3, "RMSE", format_float(rmse))
-card(k4, "Split temporal", format_float(split_q), badge="q")
-card(k5, "Cutoff", str(cutoff))
+kcol1, kcol2 = st.columns(2)
+with kcol1:
+    kpi_card("Target", str(target))
+with kcol2:
+    kpi_card("Cutoff", str(cutoff))
 
-st.caption(f"Reports: {REPORTS_DIR.as_posix()} | Last updated: {last_updated}")
+kcol3, kcol4 = st.columns(2)
+with kcol3:
+    kpi_card("MAE", format_float(mae))
+with kcol4:
+    kpi_card("RMSE", format_float(rmse))
+
+st.caption(f"Última actualización: {last_updated} · Directorio: {REPORTS_DIR.as_posix()}")
 st.markdown("<hr/>", unsafe_allow_html=True)
 
-with st.expander("Glosario (qué significa cada campo)"):
-    st.markdown(
-        """
-- **yhat**: energía predicha por el modelo (kWh).
-- **y** / **energia_total_kwh**: energía real observada (kWh).
-- **residual = y - yhat**: error del modelo.
-- **abs_residual = |residual|**: magnitud del error.
-- **Anomalía**: registros con **abs_residual** por encima del umbral **p99**.
-        """.strip()
-    )
-
-# Sidebar: filtros
+# Sidebar filtros
 st.sidebar.header("Filtros")
 
 def build_catalog(*dfs: Optional[pd.DataFrame]) -> pd.DataFrame:
     rows: list[pd.DataFrame] = []
     for df in dfs:
-        if not isinstance(df, pd.DataFrame):
-            continue
-        if "sede_id" not in df.columns:
+        if not isinstance(df, pd.DataFrame) or "sede_id" not in df.columns:
             continue
         tmp = df[["sede_id"]].copy()
-        if "sede" in df.columns:
-            tmp["sede"] = df["sede"].astype(str).str.strip()
-        else:
-            tmp["sede"] = ""
+        tmp["sede"] = df["sede"].astype(str).str.strip() if "sede" in df.columns else ""
         rows.append(tmp.dropna(subset=["sede_id"]))
     if not rows:
         return pd.DataFrame(columns=["sede_id", "sede"])
@@ -231,32 +347,31 @@ def build_catalog(*dfs: Optional[pd.DataFrame]) -> pd.DataFrame:
 
 catalog = build_catalog(f24, f7d, pv, anom, reco)
 
-if len(catalog) == 0:
-    sede_id_sel = "(todas)"
-    st.sidebar.warning("No encontré 'sede_id' en los reportes cargados.")
-else:
-    label_to_id: dict[str, str] = {"(todas)": "(todas)"}
+label_to_id: dict[str, str] = {"(todas)": "(todas)"}
+if len(catalog) > 0:
     for _, r in catalog.iterrows():
         sid = str(r["sede_id"])
         name = str(r.get("sede", "")).strip()
         label = f"{sid} — {name}" if name and name != "nan" else sid
         label_to_id[label] = sid
+else:
+    st.sidebar.warning("No se encontró 'sede_id' en los reportes.")
 
-    selected_label = st.sidebar.selectbox("Selecciona sede", options=list(label_to_id.keys()))
-    sede_id_sel = label_to_id[selected_label]
+selected_label = st.sidebar.selectbox("Selecciona sede", options=list(label_to_id.keys()), key="sede_sel")
+sede_id_sel = label_to_id[selected_label]
 
 show_only_anomalies = st.sidebar.checkbox("Solo anomalías (is_anomaly=True)", value=True)
 
 def filter_sede(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
-    if sede_id_sel not in ("(todas)",) and "sede_id" in out.columns:
+    if sede_id_sel != "(todas)" and "sede_id" in out.columns:
         out = out[out["sede_id"] == sede_id_sel]
     return out
 
 
-# Tabs
+# Tabs principales (vertical y claras)
 tab1, tab2, tab3, tab4 = st.tabs(
-    ["Resumen", "Pronósticos", "Anomalías y recomendaciones", "Evidencia real vs pred"]
+    ["Resumen", "Pronósticos", "Anomalías", "Recomendaciones"]
 )
 
 # -----------------------------
@@ -280,113 +395,112 @@ with tab1:
     )
 
     cA, cB, cC = st.columns(3)
-    card(cA, "Filas forecast 24h", f"{len(f24):,}" if isinstance(f24, pd.DataFrame) else "NA")
-    card(cB, "Filas forecast 7d", f"{len(f7d):,}" if isinstance(f7d, pd.DataFrame) else "NA")
-    card(cC, "Filas evidencia test", f"{len(pv):,}" if isinstance(pv, pd.DataFrame) else "NA")
+    with cA:
+        kpi_card("Filas forecast 24h", f"{len(f24):,}" if isinstance(f24, pd.DataFrame) else "NA")
+    with cB:
+        kpi_card("Filas forecast 7d", f"{len(f7d):,}" if isinstance(f7d, pd.DataFrame) else "NA")
+    with cC:
+        kpi_card("Filas evidencia test", f"{len(pv):,}" if isinstance(pv, pd.DataFrame) else "NA")
 
 # -----------------------------
 # Pronósticos
 # -----------------------------
 with tab2:
-    st.subheader("Pronósticos")
+    st.subheader("Pronósticos por sede")
 
-    c1, c2 = st.columns(2)
+    if isinstance(f24, pd.DataFrame):
+        st.markdown("#### Próximas 24 horas")
+        df24 = filter_sede(f24)
+        cols = [c for c in ["timestamp", "sede_id", "sede", "yhat"] if c in df24.columns]
+        st.dataframe(df24[cols].head(48), width="stretch", hide_index=True)
 
-    with c1:
-        st.markdown("### 24 horas")
-        if isinstance(f24, pd.DataFrame):
-            df = filter_sede(f24)
-            cols = [c for c in ["timestamp", "sede_id", "sede", "yhat"] if c in df.columns]
-            st.dataframe(df[cols].head(48), width="stretch")
-
-            if "timestamp" in df.columns and "yhat" in df.columns:
-                tmp = df.copy()
-                tmp["timestamp"] = safe_to_datetime(tmp["timestamp"])
-                tmp = tmp.dropna(subset=["timestamp"]).sort_values("timestamp").set_index("timestamp")
-                st.line_chart(tmp["yhat"].head(200))
-        else:
-            st.warning("No encuentro forecast_24h_energy.csv en /reports.")
-
-    with c2:
-        st.markdown("### 7 días")
-        if isinstance(f7d, pd.DataFrame):
-            df = filter_sede(f7d)
-            cols = [c for c in ["timestamp", "sede_id", "sede", "yhat"] if c in df.columns]
-            st.dataframe(df[cols].head(48), width="stretch")
-
-            if "timestamp" in df.columns and "yhat" in df.columns:
-                tmp = df.copy()
-                tmp["timestamp"] = safe_to_datetime(tmp["timestamp"])
-                tmp = tmp.dropna(subset=["timestamp"]).sort_values("timestamp").set_index("timestamp")
-                st.line_chart(tmp["yhat"].head(400))
-        else:
-            st.warning("No encuentro forecast_7d_energy.csv en /reports.")
-
-# -----------------------------
-# Anomalías y recomendaciones
-# -----------------------------
-with tab3:
-    st.subheader("Anomalías y recomendaciones")
-
-    c3, c4 = st.columns(2)
-
-    with c3:
-        st.markdown("### Anomalías (top)")
-        if isinstance(anom, pd.DataFrame):
-            df = filter_sede(anom)
-
-            if show_only_anomalies and "is_anomaly" in df.columns:
-                is_true = df["is_anomaly"].astype(str).str.lower().isin(["true", "1", "yes"])
-                df = df[is_true]
-
-            if "abs_residual" not in df.columns and "residual" in df.columns:
-                df["abs_residual"] = df["residual"].abs()
-
-            if "abs_residual" in df.columns:
-                df = df.sort_values("abs_residual", ascending=False)
-
-            cols = [
-                c for c in
-                ["timestamp", "sede_id", "sede", "energia_total_kwh", "yhat", "residual", "abs_residual", "threshold_p99"]
-                if c in df.columns
-            ]
-            st.dataframe(df[cols].head(20), width="stretch")
-
-            if len(df) == 0:
-                st.info("No hay filas tras aplicar filtros (revisa sede o desmarca 'Solo anomalías').")
-        else:
-            st.warning("No encuentro anomalies_energy.csv en /reports.")
-
-    with c4:
-        st.markdown("### Recomendaciones (top)")
-        if isinstance(reco, pd.DataFrame):
-            df = filter_sede(reco)
-
-            # Ordena si hay una columna de prioridad (severity suele existir)
-            if "severity" in df.columns:
-                df = df.sort_values("severity", ascending=False)
-
-            st.dataframe(df.head(20), width="stretch")
-
-            if len(df) == 0:
-                st.info("No hay recomendaciones para el filtro actual.")
-        else:
-            st.warning("No encuentro recommendations_energy.csv en /reports.")
-
-# -----------------------------
-# Evidencia real vs pred
-# -----------------------------
-with tab4:
-    st.subheader("Evidencia: real vs pred (periodo de test)")
-    if isinstance(pv, pd.DataFrame):
-        df = filter_sede(pv)
-        cols = [c for c in ["timestamp", "sede_id", "sede", "y", "yhat"] if c in df.columns]
-        st.dataframe(df[cols].head(80), width="stretch")
-
-        if "timestamp" in df.columns and "y" in df.columns and "yhat" in df.columns:
-            tmp = df.copy()
+        if "timestamp" in df24.columns and "yhat" in df24.columns:
+            tmp = df24.copy()
             tmp["timestamp"] = safe_to_datetime(tmp["timestamp"])
             tmp = tmp.dropna(subset=["timestamp"]).sort_values("timestamp").set_index("timestamp")
-            st.line_chart(tmp[["y", "yhat"]].head(400))
+            st.line_chart(tmp["yhat"].head(200))
     else:
-        st.warning("No encuentro pred_vs_real_energy.csv en /reports.")
+        st.warning("No existe forecast_24h_energy.csv en /reports.")
+
+    st.markdown("<hr/>", unsafe_allow_html=True)
+
+    if isinstance(f7d, pd.DataFrame):
+        st.markdown("#### Próximos 7 días")
+        df7 = filter_sede(f7d)
+        cols = [c for c in ["timestamp", "sede_id", "sede", "yhat"] if c in df7.columns]
+        st.dataframe(df7[cols].head(72), width="stretch", hide_index=True)
+
+        if "timestamp" in df7.columns and "yhat" in df7.columns:
+            tmp = df7.copy()
+            tmp["timestamp"] = safe_to_datetime(tmp["timestamp"])
+            tmp = tmp.dropna(subset=["timestamp"]).sort_values("timestamp").set_index("timestamp")
+            st.line_chart(tmp["yhat"].head(500))
+    else:
+        st.warning("No existe forecast_7d_energy.csv en /reports.")
+
+# -----------------------------
+# Anomalías
+# -----------------------------
+with tab3:
+    st.subheader("Anomalías detectadas")
+
+    if isinstance(anom, pd.DataFrame):
+        df = filter_sede(anom)
+
+        if show_only_anomalies and "is_anomaly" in df.columns:
+            is_true = df["is_anomaly"].astype(str).str.lower().isin(["true", "1", "yes"])
+            df = df[is_true]
+
+        if "abs_residual" not in df.columns and "residual" in df.columns:
+            df["abs_residual"] = df["residual"].abs()
+
+        if "abs_residual" in df.columns:
+            df = df.sort_values("abs_residual", ascending=False)
+
+        cols = [
+            c for c in
+            ["timestamp", "sede_id", "sede", "y", "yhat", "abs_residual", "threshold_p99"]
+            if c in df.columns
+        ]
+        st.dataframe(df[cols].head(40), width="stretch", hide_index=True)
+
+        if len(df) == 0:
+            st.info("No hay anomalías para el filtro actual.")
+    else:
+        st.warning("No existe anomalies_energy.csv en /reports.")
+
+# -----------------------------
+# Recomendaciones (cards)
+# -----------------------------
+with tab4:
+    st.subheader("Recomendaciones")
+
+    if isinstance(reco, pd.DataFrame):
+        df = filter_sede(reco)
+
+        # Orden por severidad y magnitud (si existe abs_residual)
+        if "abs_residual" in df.columns:
+            df = df.sort_values("abs_residual", ascending=False)
+        elif "severity" in df.columns:
+            # fallback: severidad como string (alta > media > baja)
+            order = {"alta": 0, "media": 1, "baja": 2}
+            df["_sev_order"] = df["severity"].astype(str).str.lower().map(order).fillna(99)
+            df = df.sort_values("_sev_order", ascending=True).drop(columns=["_sev_order"])
+
+        limit = st.slider("Cantidad a mostrar", min_value=5, max_value=30, value=12, step=1)
+        render_recommendations_cards(df, limit=limit)
+
+        with st.expander("Ver tabla (raw)"):
+            cols = [
+                c for c in
+                ["timestamp", "sede_id", "sede", "y", "yhat", "abs_residual", "severity", "es_fin_semana", "fuera_horario", "action"]
+                if c in df.columns
+            ]
+            # Ojo: esta tabla puede generar scroll horizontal por el texto largo de action.
+            # Por eso va en un expander opcional.
+            st.dataframe(df[cols].head(50), width="stretch", hide_index=True)
+
+        if len(df) == 0:
+            st.info("No hay recomendaciones para el filtro actual.")
+    else:
+        st.warning("No existe recommendations_energy.csv en /reports.")
