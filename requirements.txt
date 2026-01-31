@@ -6,3 +6,4 @@ joblib
 matplotlib
 streamlit
 requests
+streamlit>=1.30
