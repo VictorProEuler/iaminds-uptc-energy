@@ -1,8 +1,22 @@
 {
   "target": "energia_total_kwh",
-  "horizon_days": 7,
-  "mae": null,
-  "rmse": null,
-  "status": "placeholder - pending training"
+  "time_col": "timestamp",
+  "split_method": "timestamp_quantile_0.85",
+  "cutoff_timestamp": "2024-08-27 22:06:00",
+  "seed": 42,
+  "mae": 1.0823116335952911,
+  "rmse": 4.312126233110544,
+  "features_used": [
+    "hora",
+    "dia_semana",
+    "mes",
+    "es_fin_semana",
+    "temperatura_exterior_c",
+    "ocupacion_pct",
+    "es_festivo",
+    "sede_id"
+  ],
+  "rows_total": 275387,
+  "rows_train": 234079,
+  "rows_test": 41308
 }
-
