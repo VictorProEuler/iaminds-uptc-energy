@@ -44,3 +44,6 @@ El agente debe responder leyendo `reports/` y evitando inferencias no soportadas
 - anomalías: `anomalies_energy.csv`
 - recomendaciones: `recommendations_energy.csv`
 - evidencia: `pred_vs_real_energy.csv`
+- ## Demo en vivo
+Dashboard (Streamlit): https://iaminds-uptc-energy-ltumfkyxesyrtcanxmaryu.streamlit.app
+
