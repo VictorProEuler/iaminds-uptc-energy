@@ -1,1 +1,8 @@
+{
+  "target": "energia_total_kwh",
+  "horizon_days": 7,
+  "mae": null,
+  "rmse": null,
+  "status": "placeholder - pending training"
+}
 
