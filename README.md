@@ -47,3 +47,8 @@ El agente debe responder leyendo `reports/` y evitando inferencias no soportadas
 - ## Demo en vivo
 Dashboard (Streamlit): https://iaminds-uptc-energy-ltumfkyxesyrtcanxmaryu.streamlit.app
 
+### Qué hace el bot
+- Responde consultas sobre pronóstico 24h/7d por sede.
+- Lista anomalías recientes y recomendaciones asociadas.
+- Devuelve el link del dashboard con /dashboard
+
